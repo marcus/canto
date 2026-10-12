@@ -320,7 +320,7 @@ impl CantoApp {
                             .flex()
                             .flex_col()
                             .child(div().text_sm().text_color(text()).child("Quick draft"))
-                            .child(div().text_xs().text_color(text_faint()).child("8 steps, about a minute. Rougher sound.")),
+                            .child(div().text_xs().text_color(text_faint()).child("8 synthesis steps instead of 32: minutes faster, rougher sound.")),
                     )
                     .child(toggle(draft))
                     .on_click(cx.listener(|this, _, _, cx| {

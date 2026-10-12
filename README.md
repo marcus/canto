@@ -24,7 +24,7 @@ This builds `~/Applications/Canto.app` and installs the CLI to `~/.local/bin/can
 
 - **Simple** — describe the song in a sentence and press **Write & create**. The refiner writes the brief, fills the Custom form, and queues the song. **Write it, but let me edit first** stops after the writing step.
 - **Custom** — write or paste lyrics and a style. Each field has a **Refine** button, and **Refine everything** takes an optional direction such as "make the chorus punchier".
-- **Quick draft** — 8 diffusion steps instead of 32: about a minute, rougher sound. Use it to audition a prompt.
+- **Quick draft** — 8 synthesis steps instead of 32. Writing the song takes as long either way, but synthesis is about four times faster: a 3½-minute draft takes about 4½ minutes on an M4 Pro. Use it to audition a prompt.
 - The Claude/Codex switch at the top picks the refiner. The choice is saved to the config.
 - Library: double-click or hover a cover to play. In the detail panel, **Remix** keeps the prompt and uses a new seed. **Reuse prompt** loads the song into Custom.
 - Songs generate one at a time; anything else queues. Cancel with the ✕ on a running song.

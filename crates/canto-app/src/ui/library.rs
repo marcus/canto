@@ -241,13 +241,21 @@ fn render_job(job: &Job, cx: &mut Context<CantoApp>) -> impl IntoElement {
                         .text_xs()
                         .text_color(text_dim())
                         .child(format!("{label} · {}%", (fraction * 100.0).round()))
-                        .child(fmt_time(elapsed)),
+                        .child(match remaining(elapsed, fraction) {
+                            Some(left) => format!("{} · ~{} left", fmt_time(elapsed), fmt_time(left)),
+                            None => fmt_time(elapsed),
+                        }),
                 ),
         )
         .child(
             icon_button(SharedString::from(format!("cancel-{}", job.id)), "x", text_faint())
                 .on_click(cx.listener(move |this, _, _, cx| this.cancel_job(&id, cx))),
         )
+}
+
+/// Linear extrapolation once the bar has moved far enough to trust it.
+fn remaining(elapsed: f32, fraction: f32) -> Option<f32> {
+    (fraction > 0.08 && fraction < 0.995).then(|| elapsed * (1.0 - fraction) / fraction)
 }
 
 fn render_empty(filter: Filter) -> impl IntoElement {

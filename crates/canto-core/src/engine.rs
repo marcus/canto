@@ -163,7 +163,7 @@ impl Engine for MlxYue {
         drop(tx);
 
         let child = Arc::new(Mutex::new(child));
-        let mut tracker = ProgressTracker::default();
+        let mut tracker = ProgressTracker::for_request(request);
         let mut log: Vec<String> = Vec::new();
         loop {
             if cancel.is_cancelled() {
@@ -262,39 +262,80 @@ pub(crate) fn tool_path() -> String {
     parts.join(":")
 }
 
+/// Rough song length from the lyrics: about 45 s plus 3.5 s per sung line
+/// (fitted on M4 Pro runs; only used to weight the progress bar).
+pub fn estimated_seconds(lyrics: &str) -> f32 {
+    let sung = lyrics.lines().map(str::trim).filter(|l| !l.is_empty() && !l.starts_with('[')).count();
+    45.0 + 3.5 * sung as f32
+}
+
 /// Maps YuE2's `[YuE2] Running <Phase>: …` lines onto one overall fraction.
-#[derive(Default)]
+///
+/// Each stage gets a share of the bar proportional to its expected time on
+/// Aerie, per second of audio: planning ~0.15 s, writing tokens ~0.55 s,
+/// synthesis ~0.07 s per step, decoding ~0.08 s, plus a few seconds of loading.
 pub struct ProgressTracker {
     best: f32,
+    audio_secs: f32,
+    /// Cumulative stage boundaries: load | plan | write | synth | decode.
+    bounds: [f32; 5],
+}
+
+impl Default for ProgressTracker {
+    fn default() -> Self {
+        Self::new(60.0, crate::song::FULL_STEPS)
+    }
 }
 
 impl ProgressTracker {
+    pub fn new(audio_secs: f32, steps: u32) -> Self {
+        let weights = [6.0, 0.15 * audio_secs, 0.55 * audio_secs, 0.07 * steps as f32 * audio_secs, 0.08 * audio_secs];
+        let total: f32 = weights.iter().sum();
+        let mut bounds = [0.0; 5];
+        let mut acc = 0.0;
+        for (i, w) in weights.iter().enumerate() {
+            acc += w / total;
+            bounds[i] = acc;
+        }
+        Self { best: 0.0, audio_secs, bounds }
+    }
+
+    pub fn for_request(request: &SongRequest) -> Self {
+        Self::new(estimated_seconds(&request.lyrics), request.steps)
+    }
+
+    /// Position `within` (0–1) of stage `i` on the overall bar.
+    fn at(&self, i: usize, within: f32) -> f32 {
+        let start = if i == 0 { 0.0 } else { self.bounds[i - 1] };
+        start + (self.bounds[i] - start) * within.clamp(0.0, 0.98)
+    }
+
     pub fn observe(&mut self, line: &str) -> Option<Progress> {
         let rest = line.strip_prefix("[YuE2] ")?;
         let (_, rest) = rest.split_once(' ')?; // Starting / Running / Completed
         let (phase, detail) = rest.split_once(':').unwrap_or((rest, ""));
         let detail = detail.trim();
-        let tokens = number_before(detail, " tokens");
+        let tokens = number_before(detail, " tokens").unwrap_or(0.0);
+        let ratio = || {
+            detail
+                .split_whitespace()
+                .next()
+                .and_then(|s| s.split_once('/'))
+                .and_then(|(a, b)| Some(a.parse::<f32>().ok()? / b.parse::<f32>().ok()?.max(1.0)))
+                .unwrap_or(0.0)
+        };
+        // Token rates per second of audio, from the same runs as the weights.
         let (stage, fraction) = match phase {
-            "Planning score" => (Stage::Planning, 0.05 + 0.10 * saturate(tokens, 600.0)),
-            "Generating song" => (Stage::Writing, 0.15 + 0.30 * saturate(tokens, 1500.0)),
-            "Synthesizing audio" => {
-                let steps = detail.split_whitespace().next().and_then(|s| s.split_once('/'));
-                let frac = steps
-                    .and_then(|(a, b)| Some(a.parse::<f32>().ok()? / b.parse::<f32>().ok()?.max(1.0)))
-                    .unwrap_or(0.0);
-                (Stage::Synthesizing, 0.45 + 0.50 * frac)
-            }
-            p if p.contains("decoder") || p.contains("Decoding") => (Stage::Decoding, 0.96),
-            _ => (Stage::Loading, 0.02),
+            "Planning score" => (Stage::Planning, self.at(1, tokens / (9.5 * self.audio_secs))),
+            "Generating song" => (Stage::Writing, self.at(2, tokens / (25.0 * self.audio_secs))),
+            "Synthesizing audio" => (Stage::Synthesizing, self.at(3, ratio())),
+            p if p.contains("decoder") => (Stage::Decoding, self.at(4, 0.0)),
+            p if p.starts_with("Decoding") => (Stage::Decoding, self.at(4, ratio())),
+            _ => (Stage::Loading, self.at(0, 0.5)),
         };
         self.best = self.best.max(fraction);
         Some(Progress { stage, fraction: self.best, detail: detail.to_string() })
     }
-}
-
-fn saturate(value: Option<f32>, scale: f32) -> f32 {
-    1.0 - (-value.unwrap_or(0.0) / scale).exp()
 }
 
 fn number_before(text: &str, unit: &str) -> Option<f32> {
@@ -308,14 +349,17 @@ mod tests {
 
     #[test]
     fn tracks_phases_monotonically() {
-        let mut t = ProgressTracker::default();
+        let mut t = ProgressTracker::new(200.0, 8);
         let p = t.observe("[YuE2] Running Planning score: 258 tokens | 51.5 tokens/s | elapsed 5.0s").unwrap();
         assert_eq!(p.stage, Stage::Planning);
-        let p = t.observe("[YuE2] Running Synthesizing audio: 16/32 steps (50%) | elapsed 5.0s").unwrap();
+        // With 8 steps, writing and synthesis take about the same time.
+        let p = t.observe("[YuE2] Completed Generating song: 5000 tokens | 45 tokens/s | elapsed 112s").unwrap();
+        assert!((0.45..0.6).contains(&p.fraction), "{}", p.fraction);
+        let p = t.observe("[YuE2] Running Synthesizing audio: 4/8 steps (50%) | elapsed 5.0s").unwrap();
         assert_eq!(p.stage, Stage::Synthesizing);
-        assert!((p.fraction - 0.70).abs() < 0.01);
+        let mid = p.fraction;
         let p = t.observe("[YuE2] Starting Loading acoustic model: elapsed 0.0s").unwrap();
-        assert!(p.fraction >= 0.70, "never goes backwards");
+        assert!(p.fraction >= mid, "never goes backwards");
         assert!(t.observe("plain log line").is_none());
     }
 
