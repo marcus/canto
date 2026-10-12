@@ -1,0 +1,68 @@
+{
+  "kind": "CLI and temporary substitute engine; no GPU/audio proof",
+  "binary": "/Users/marcus/code/canto-rar-length-oct11/target/score/release/canto",
+  "sha256": "1670e0c7a6eb765576a7de34b671f1bd30a16abd82449323655d3afe94cd1504",
+  "approved_instrumental_binary_sha256": "f6c78ab87504031ad9ddccce9633449d94f47bbbddd3d29d5a92b5468c55e250",
+  "refusals": [
+    {
+      "case": "blank",
+      "exit": 1,
+      "error_contains": "cannot be empty",
+      "directory_created": false
+    },
+    {
+      "case": "off",
+      "exit": 1,
+      "error_contains": "requires full or melody",
+      "directory_created": false
+    },
+    {
+      "case": "missing",
+      "exit": 1,
+      "error_contains": "reading supplied ABC score",
+      "directory_created": false
+    }
+  ],
+  "success": {
+    "started_request": {
+      "abc": "X:1\nT:\nM:4/4\nL:1/32\nQ:1/4=88\nV: Vocal clef=treble name=\"Vocal Melody\" snm=\"Vocal\"\nV: Ins clef=treble name=\"Ins Melody\" snm=\"Inst.\"\nK:G\n% interlude\nV: Vocal\n\"G\"z32|\"D7\"z32|\nV: Ins\nG8B8d8B8|A8F8D16|\n",
+      "instrumental": true,
+      "lyrics": "",
+      "max_duration_seconds": 90,
+      "mode": "full",
+      "seed": 42,
+      "steps": 32,
+      "style": "piano, jazz",
+      "title": "Supplied Score Proof"
+    },
+    "native_request": {
+      "abc": "X:1\nT:\nM:4/4\nL:1/32\nQ:1/4=88\nV: Vocal clef=treble name=\"Vocal Melody\" snm=\"Vocal\"\nV: Ins clef=treble name=\"Ins Melody\" snm=\"Inst.\"\nK:G\n% interlude\nV: Vocal\n\"G\"z32|\"D7\"z32|\nV: Ins\nG8B8d8B8|A8F8D16|\n",
+      "cot": "full",
+      "generation_config": {
+        "ode_steps": 32
+      },
+      "id": "supplied-score-proof",
+      "lyrics": "",
+      "seed": 42,
+      "semantic_sampling": {
+        "max_tokens": 2250,
+        "min_tokens": 200
+      },
+      "style": "instrumental, piano, jazz"
+    },
+    "metadata_request": {
+      "title": "Supplied Score Proof",
+      "style": "piano, jazz",
+      "lyrics": "",
+      "mode": "full",
+      "seed": 42,
+      "steps": 32,
+      "max_duration_seconds": 90,
+      "instrumental": true,
+      "abc": "X:1\nT:\nM:4/4\nL:1/32\nQ:1/4=88\nV: Vocal clef=treble name=\"Vocal Melody\" snm=\"Vocal\"\nV: Ins clef=treble name=\"Ins Melody\" snm=\"Inst.\"\nK:G\n% interlude\nV: Vocal\n\"G\"z32|\"D7\"z32|\nV: Ins\nG8B8d8B8|A8F8D16|\n"
+    },
+    "retained_after_source_deleted": true,
+    "guard_arguments_present": true,
+    "audio_created": false
+  }
+}

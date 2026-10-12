@@ -46,6 +46,7 @@ This builds `~/Applications/Canto.app` and installs the CLI to `~/.local/bin/can
 canto generate --idea "a folk lullaby for a sleepy cat" --draft
 canto generate --title "Night Drive" --style "synthwave, male vocal, 110 BPM" --lyrics-file song.txt
 canto generate --title "Radio Interlude" --style "jazz, piano" --instrumental --max-duration-seconds 90 --json
+canto generate --title "Supplied Theme" --style "jazz, piano" --instrumental --abc-file theme.abc --max-duration-seconds 90 --json
 canto refine --idea "a stomping bluegrass song about a runaway tractor" --with codex --json
 canto refine --style "rock" --lyrics-file song.txt --only lyrics --instruction "tighter rhymes"
 canto list --json
@@ -59,6 +60,8 @@ canto export-mp3 <id>
 `generate --json` streams JSON lines: `refining` and `refined` when a refiner runs, then `started`, `progress` events (`stage`, `fraction`, `detail`), and `done` with the finished song. Errors print `{"error": "..."}` and exit 1.
 
 `generate --instrumental --style "jazz, piano"` explicitly requests instrumental conditioning. Omit lyrics and section markers: Canto requires empty lyrics, and the mlx-Yue adapter adds an `instrumental` style tag. This is a soft request; the model may still produce singing, speech or vocal sounds. It cannot be combined with `--idea` or `--refine`, whose current prompts write sung lyrics. Ordinary generation still requires lyrics. The request, song JSON and remixes retain `instrumental: true`; legacy songs do not infer the flag from their style or audio. A remix that adds lyrics must explicitly turn off instrumental conditioning in its core request. The desktop Custom form still creates ordinary lyric requests; this opt-in creation path is currently CLI/core only. See [instrumental conditioning](docs/instrumental-conditioning.md).
+
+`generate --abc-file theme.abc` reads a UTF-8 native ABC score and stores its text in the request, song JSON and remix metadata. It works with full or melody mode; blank files and off mode are rejected before refinement or song creation. Supplied scores condition the model and do not guarantee note adherence or absent vocals. For an instrumental full-mode score, native guidance uses an Ins melody and a resting Vocal part carrying quoted chord symbols; melody mode needs chord-free ABC. Creation is currently CLI/core only, and desktop Remix retains the score. Details and a native-format example are in [supplied scores](docs/supplied-scores.md).
 
 `generate --max-duration-seconds N` optionally bounds generated audio to 1–360 whole seconds. Omit it to keep the model's existing length behaviour. The model may end earlier; a cap can cut off a musical phrase and does not promise a composed ending. Prompt planning still runs normally. Canto saves the requested limit in `canto.json`, includes it in song JSON, and keeps it in `Song.request()` for remixes. Old songs with no limit remain unbounded by Canto. The desktop Custom form uses the default; remixing a bounded song keeps its limit.
 

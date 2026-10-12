@@ -93,6 +93,7 @@ impl MlxYue {
     fn write_request(&self, request: &SongRequest, id: &str) -> Result<std::path::PathBuf> {
         request.validate_duration_limit()?;
         request.validate_lyric_conditioning()?;
+        request.validate_score_conditioning()?;
         let dir = self.config.library_dir().join(".requests");
         std::fs::create_dir_all(&dir)?;
         let path = dir.join(format!("{id}.json"));
@@ -112,6 +113,9 @@ impl MlxYue {
             "seed": request.seed,
             "generation_config": { "ode_steps": request.steps },
         });
+        if let Some(abc) = &request.abc {
+            body["abc"] = serde_json::Value::String(abc.clone());
+        }
         if let Some(seconds) = request.max_duration_seconds {
             // YuE2's semantic codec emits one latent frame per token. The standard
             // VAE has sample_rate=48000, downsampling_ratio=1920: exactly 25 Hz.
@@ -377,6 +381,7 @@ mod tests {
         let path = engine.write_request(&request, "default").unwrap();
         let body: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
         assert!(body.get("semantic_sampling").is_none());
+        assert!(body.get("abc").is_none());
         assert_eq!(body["generation_config"], serde_json::json!({"ode_steps": 8}));
         for (seconds, max, min) in [(1,25,25), (7,175,175), (90,2250,200), (360,9000,200)] {
             request.max_duration_seconds = Some(seconds);
@@ -408,6 +413,27 @@ mod tests {
         assert_eq!(body["style"], request.style);
         request.lyrics = "[Intro]".into();
         assert!(engine.write_request(&request, "invalid").is_err());
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn supplied_score_adapter_preserves_exact_text_without_external_path() {
+        let dir = std::env::temp_dir().join(format!("canto-score-{}", crate::random_seed()));
+        let engine = MlxYue::new(Config { library_dir: Some(dir.clone()), ..Default::default() });
+        let score = include_str!("../tests/fixtures/instrumental.abc");
+        let mut request = SongRequest { style: "piano".into(), instrumental: true, steps: 32, abc: Some(score.into()), ..Default::default() };
+        let path = engine.write_request(&request, "supplied").unwrap();
+        let body: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+        assert_eq!(body["abc"], score);
+        assert_eq!(body["lyrics"], "");
+        assert_eq!(body["cot"], "full");
+        assert!(body.get("abc_path").is_none());
+        request.mode = crate::song::Mode::Off;
+        assert!(engine.write_request(&request, "off").is_err());
+        assert!(!dir.join(".requests/off.json").exists());
+        request.mode = crate::song::Mode::Full;
+        request.abc = Some(" ".into());
+        assert!(engine.write_request(&request, "blank").is_err());
         std::fs::remove_dir_all(dir).unwrap();
     }
 

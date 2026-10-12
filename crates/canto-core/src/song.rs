@@ -60,6 +60,9 @@ pub struct SongRequest {
     /// Request empty-lyric instrumental conditioning, not guaranteed vocal-free audio.
     #[serde(default, skip_serializing_if = "is_false")]
     pub instrumental: bool,
+    /// Optional supplied native ABC score text, retained for loading and remixes.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub abc: Option<String>,
 }
 
 fn is_false(value: &bool) -> bool {
@@ -76,6 +79,15 @@ impl SongRequest {
         self.validate_lyric_conditioning()?;
         anyhow::ensure!((1..=128).contains(&self.steps), "steps must be between 1 and 128");
         self.validate_duration_limit()?;
+        self.validate_score_conditioning()?;
+        Ok(())
+    }
+
+    pub fn validate_score_conditioning(&self) -> anyhow::Result<()> {
+        if let Some(abc) = &self.abc {
+            anyhow::ensure!(!abc.trim().is_empty(), "supplied ABC score cannot be empty");
+            anyhow::ensure!(self.mode != Mode::Off, "supplied ABC score requires full or melody mode; off mode does not accept a score");
+        }
         Ok(())
     }
 
@@ -147,6 +159,8 @@ pub struct Song {
     pub max_duration_seconds: Option<u32>,
     #[serde(default, skip_serializing_if = "is_false")]
     pub instrumental: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub abc: Option<String>,
     pub audio: Option<PathBuf>,
     pub mp3: Option<PathBuf>,
     pub seconds_to_generate: Option<f64>,
@@ -164,6 +178,7 @@ impl Song {
             steps: self.steps,
             max_duration_seconds: self.max_duration_seconds,
             instrumental: self.instrumental,
+            abc: self.abc.clone(),
         }
     }
 
@@ -181,11 +196,13 @@ mod tests {
         let request: SongRequest = serde_json::from_str(r#"{"title":"Old","style":"folk","lyrics":"[intro]"}"#).unwrap();
         assert_eq!(request.max_duration_seconds, None);
         assert!(!request.instrumental);
+        assert_eq!(request.abc, None);
         assert_eq!(request.steps, FULL_STEPS);
         assert!(request.validate().is_ok());
         let body = serde_json::to_value(request).unwrap();
         assert!(body.get("max_duration_seconds").is_none());
         assert!(body.get("instrumental").is_none());
+        assert!(body.get("abc").is_none());
     }
 
     #[test]
@@ -204,6 +221,27 @@ mod tests {
         request.validate().unwrap();
         request.style.clear();
         assert!(request.validate().is_err());
+    }
+
+    #[test]
+    fn supplied_score_validation_preserves_text_and_refuses_blank_or_off() {
+        let score = include_str!("../tests/fixtures/instrumental.abc");
+        let mut request = SongRequest { style: "piano".into(), instrumental: true, steps: 32, abc: Some(score.into()), ..Default::default() };
+        for mode in [Mode::Full, Mode::Melody] {
+            request.mode = mode;
+            request.validate().unwrap();
+            let loaded: SongRequest = serde_json::from_value(serde_json::to_value(&request).unwrap()).unwrap();
+            assert_eq!(loaded.abc.as_deref(), Some(score));
+        }
+        request.mode = Mode::Off;
+        assert!(request.validate().unwrap_err().to_string().contains("requires full or melody"));
+        request.abc = None;
+        request.validate().unwrap();
+        request.mode = Mode::Full;
+        for blank in ["", " \n\t"] {
+            request.abc = Some(blank.into());
+            assert!(request.validate().unwrap_err().to_string().contains("cannot be empty"));
+        }
     }
 
     #[test]

@@ -1,0 +1,25 @@
+{
+  "candidate": "918014d",
+  "binarySha256": "f6c78ab87504031ad9ddccce9633449d94f47bbbddd3d29d5a92b5468c55e250",
+  "sourceDir": "/Volumes/Swift/local-inference/yue2/outputs/copper-creek-reel-3",
+  "nativeLyrics": "",
+  "nativeMode": "full",
+  "nativeSeed": 26101311,
+  "nativeStyleHasInstrumental": true,
+  "metadataInstrumental": true,
+  "metadataLyrics": "",
+  "metadataStatus": "complete",
+  "secondsToGenerate": 183.261937291,
+  "semantic": {
+    "temperature": 1.0,
+    "top_p": 0.95,
+    "top_k": 100,
+    "repetition_penalty": 1.2,
+    "penalty_window": 50,
+    "min_tokens": 200,
+    "max_tokens": 2750
+  },
+  "memoryBudgetGiB": 16.0,
+  "sourceSha256": "3cf52dcab8442dbec3267917e38c854d4daf8b1a5a7328310b2c0c211eec696f",
+  "outputAudit": "Rejected: 131 recognized words and 4 singing spans. The explicit instrumental option is soft conditioning, not an output guarantee."
+}

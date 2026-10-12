@@ -1,0 +1,115 @@
+{
+  "scope": "native-dialect structural check; not native serializer reconstruction or audio verification",
+  "sha256": "6c92016de3263048ad6aa92a48beb4afed67a702a7601794cab5a30dbc2e82bd",
+  "bpm": 88,
+  "unit_length": "1/32",
+  "duration_quarters": "8",
+  "nominal_duration_seconds": 5.454545454545454,
+  "voices": {
+    "Vocal": {
+      "sounding_notes": 0,
+      "measures": 2,
+      "notes": [],
+      "chords": [
+        [
+          "0",
+          "G"
+        ],
+        [
+          "4",
+          "D7"
+        ]
+      ],
+      "keys": [
+        [
+          "0",
+          "G"
+        ]
+      ],
+      "bars": [
+        [
+          "0",
+          "4",
+          [
+            4,
+            4
+          ]
+        ],
+        [
+          "4",
+          "4",
+          [
+            4,
+            4
+          ]
+        ]
+      ]
+    },
+    "Ins": {
+      "sounding_notes": 7,
+      "measures": 2,
+      "notes": [
+        {
+          "onset_quarters": "0",
+          "midi_pitch": 67,
+          "duration_quarters": "1"
+        },
+        {
+          "onset_quarters": "1",
+          "midi_pitch": 71,
+          "duration_quarters": "1"
+        },
+        {
+          "onset_quarters": "2",
+          "midi_pitch": 74,
+          "duration_quarters": "1"
+        },
+        {
+          "onset_quarters": "3",
+          "midi_pitch": 71,
+          "duration_quarters": "1"
+        },
+        {
+          "onset_quarters": "4",
+          "midi_pitch": 69,
+          "duration_quarters": "1"
+        },
+        {
+          "onset_quarters": "5",
+          "midi_pitch": 66,
+          "duration_quarters": "1"
+        },
+        {
+          "onset_quarters": "6",
+          "midi_pitch": 62,
+          "duration_quarters": "2"
+        }
+      ],
+      "chords": [],
+      "keys": [
+        [
+          "0",
+          "G"
+        ]
+      ],
+      "bars": [
+        [
+          "0",
+          "4",
+          [
+            4,
+            4
+          ]
+        ],
+        [
+          "4",
+          "4",
+          [
+            4,
+            4
+          ]
+        ]
+      ]
+    }
+  }
+}

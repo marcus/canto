@@ -109,6 +109,7 @@ impl Library {
             steps,
             max_duration_seconds: asked.max_duration_seconds,
             instrumental: asked.instrumental,
+            abc: asked.abc.clone(),
             created: if meta.created > 0 { meta.created } else { mtime(&dir) },
             favorite: meta.favorite,
             status,
@@ -309,6 +310,35 @@ mod tests {
         let legacy = library.get("native-only").unwrap();
         assert!(!legacy.instrumental);
         assert!(serde_json::to_value(legacy).unwrap().get("instrumental").is_none());
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn supplied_score_metadata_and_remix_retain_exact_text_without_inference() {
+        let dir = std::env::temp_dir().join(format!("canto-library-score-{}", crate::random_seed()));
+        let library = Library::new(&dir);
+        let score = include_str!("../tests/fixtures/instrumental.abc");
+        let request = crate::song::SongRequest { style: "piano".into(), steps: 32, instrumental: true, abc: Some(score.into()), ..Default::default() };
+        library.write_meta("supplied", &SongMeta { request: Some(request), ..Default::default() }).unwrap();
+        let native = serde_json::json!({"style":"instrumental, piano", "lyrics":"", "abc":score, "cot":"full", "seed":42}).to_string();
+        std::fs::write(dir.join("supplied/request.json"), &native).unwrap();
+        let song = library.get("supplied").unwrap();
+        assert_eq!(song.abc.as_deref(), Some(score));
+        let mut remix = song.request();
+        assert_eq!(remix.abc.as_deref(), Some(score));
+        remix.validate().unwrap();
+        remix.mode = Mode::Off;
+        assert!(remix.validate().is_err());
+        remix.abc = None;
+        remix.validate().unwrap();
+        library.rename("supplied", "Renamed").unwrap();
+        assert_eq!(library.get("supplied").unwrap().request().abc.as_deref(), Some(score));
+        assert_eq!(std::fs::read_to_string(dir.join("supplied/request.json")).unwrap(), native);
+        library.write_meta("legacy", &SongMeta::default()).unwrap();
+        std::fs::write(dir.join("legacy/request.json"), native).unwrap();
+        let legacy = library.get("legacy").unwrap();
+        assert_eq!(legacy.request().abc, None);
+        assert!(serde_json::to_value(legacy).unwrap().get("abc").is_none());
         std::fs::remove_dir_all(dir).unwrap();
     }
 

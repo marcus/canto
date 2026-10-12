@@ -324,6 +324,7 @@ impl CantoApp {
             steps: if self.draft { DRAFT_STEPS } else { FULL_STEPS },
             max_duration_seconds: None,
             instrumental: false,
+            abc: None,
         };
         if request.style.is_empty() {
             return Err("Add a style, or use ✦ to write one".into());

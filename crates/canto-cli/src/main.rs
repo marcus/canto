@@ -80,6 +80,9 @@ struct GenerateArgs {
     /// Request instrumental conditioning with empty lyrics (vocals are still possible)
     #[arg(long)]
     instrumental: bool,
+    /// Supply native ABC score text from a UTF-8 file (full/melody mode only)
+    #[arg(long)]
+    abc_file: Option<PathBuf>,
     /// Quick 8-step audition instead of the full 32 steps
     #[arg(long)]
     draft: bool,
@@ -231,8 +234,10 @@ fn generate(studio: &Studio, args: &GenerateArgs, json: bool) -> Result<()> {
         steps: if args.draft { DRAFT_STEPS } else { FULL_STEPS },
         max_duration_seconds: args.max_duration_seconds,
         instrumental: args.instrumental,
+        abc: args.abc_file.as_ref().map(std::fs::read_to_string).transpose().context("reading supplied ABC score")?,
     };
     request.validate_duration_limit()?;
+    request.validate_score_conditioning()?;
     if request.instrumental {
         request.validate_lyric_conditioning()?;
         anyhow::ensure!(args.idea.is_none() && !args.refine, "--instrumental requires an explicit --style and cannot use --idea or --refine; refiners write sung lyrics");
@@ -318,6 +323,9 @@ fn print_song(song: &Song, json: bool) -> Result<()> {
     if song.instrumental {
         println!("  conditioning: instrumental (vocals possible)");
     }
+    if song.abc.is_some() {
+        println!("  score:    supplied ABC");
+    }
     println!("  style:    {}", song.style);
     println!("  seed:     {}", song.seed);
     if let Some(a) = &song.audio {
@@ -349,6 +357,17 @@ mod tests {
         let cli = Cli::try_parse_from(["canto", "generate"]).unwrap();
         let Cmd::Generate(args) = cli.command else { panic!("wrong command") };
         assert!(!args.instrumental);
+    }
+
+    #[test]
+    fn generate_accepts_supplied_score_file_with_instrumental_and_json() {
+        let cli = Cli::try_parse_from(["canto", "generate", "--style", "piano", "--instrumental", "--abc-file", "theme.abc", "--json"]).unwrap();
+        assert!(cli.json);
+        let Cmd::Generate(args) = cli.command else { panic!("wrong command") };
+        assert_eq!(args.abc_file, Some(PathBuf::from("theme.abc")));
+        let cli = Cli::try_parse_from(["canto", "generate"]).unwrap();
+        let Cmd::Generate(args) = cli.command else { panic!("wrong command") };
+        assert_eq!(args.abc_file, None);
     }
 
     #[test]
