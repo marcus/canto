@@ -1,0 +1,50 @@
+{
+  "candidate": "e68f780",
+  "binarySha256": "1670e0c7a6eb765576a7de34b671f1bd30a16abd82449323655d3afe94cd1504",
+  "sourceDir": "/Volumes/Swift/local-inference/yue2/outputs/copper-creek-reel-6",
+  "nativeLyrics": "",
+  "nativeMode": "full",
+  "nativeSeed": 26101511,
+  "nativeStyleHasInstrumental": true,
+  "metadataInstrumental": true,
+  "metadataStatus": "complete",
+  "nativeRequestScoreSha256": "8bd3997d6e1d8a687eb6557fc3382bc08ef6d30f00c8a4d19925ac51eef7e58b",
+  "metadataScoreSha256": "8bd3997d6e1d8a687eb6557fc3382bc08ef6d30f00c8a4d19925ac51eef7e58b",
+  "actualScoreSha256": "8bd3997d6e1d8a687eb6557fc3382bc08ef6d30f00c8a4d19925ac51eef7e58b",
+  "scoreStructure": {
+    "scope": "native-dialect structural check; not native serializer reconstruction or audio verification",
+    "sha256": "8bd3997d6e1d8a687eb6557fc3382bc08ef6d30f00c8a4d19925ac51eef7e58b",
+    "nominalDurationSeconds": 94.78991596638656,
+    "vocalNotes": 0,
+    "instrumentalNotes": 336
+  },
+  "secondsToGenerate": 99.894768708,
+  "semantic": {
+    "temperature": 1.0,
+    "top_p": 0.95,
+    "top_k": 100,
+    "repetition_penalty": 1.2,
+    "penalty_window": 50,
+    "min_tokens": 200,
+    "max_tokens": 2750
+  },
+  "memoryBudgetGiB": 16.0,
+  "sourceSha256": "435f9dfafeed6b230ccbbb4c1faf21e347957c8ebf7af0d16e221aaf620ddcc3",
+  "sourceSeconds": 94.278667,
+  "encodedSeconds": 94.306,
+  "encodedSha256": "839162de249eefaf924904fb4aa0b79536e14de16c7d8a2148a17f64f9eace26",
+  "lufs": -16,
+  "truePeakDbTP": -2.12,
+  "truncated": {
+    "abc": false,
+    "semantic": false
+  },
+  "auditResponse": "/Volumes/Swift/local-inference/yue2/rr-radio-oct11/canto-folk-2-839162de249eefaf-scribe.json",
+  "auditResponseSha256": "3954c22df40dc295e77565ee966217fcdc8f527635c1a368c9c6caf1e0f9150e",
+  "auditWords": 0,
+  "auditVoiceEvents": 0,
+  "auditTranscript": "[on hold music]",
+  "auditDecision": "Accepted after independent review of exact on hold music spelling; hash-bound classifier4 reclassification found no recognized words, human-voice events or unknown events.",
+  "limitation": "Native request path and exact score persistence verified. Automated audit is not listening quality, musical adherence or wordless-vocal proof.",
+  "auditClassifierVersion": 4
+}
