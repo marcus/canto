@@ -91,10 +91,11 @@ impl MlxYue {
     }
 
     fn write_request(&self, request: &SongRequest, id: &str) -> Result<std::path::PathBuf> {
+        request.validate_duration_limit()?;
         let dir = self.config.library_dir().join(".requests");
         std::fs::create_dir_all(&dir)?;
         let path = dir.join(format!("{id}.json"));
-        let body = serde_json::json!({
+        let mut body = serde_json::json!({
             "id": id,
             "style": request.style,
             "lyrics": request.lyrics,
@@ -102,6 +103,16 @@ impl MlxYue {
             "seed": request.seed,
             "generation_config": { "ode_steps": request.steps },
         });
+        if let Some(seconds) = request.max_duration_seconds {
+            // YuE2's semantic codec emits one latent frame per token. The standard
+            // VAE has sample_rate=48000, downsampling_ratio=1920: exactly 25 Hz.
+            // Keep this translation inside the model adapter, never in a surface.
+            let max_tokens = seconds * 25;
+            body["semantic_sampling"] = serde_json::json!({
+                "max_tokens": max_tokens,
+                "min_tokens": 200_u32.min(max_tokens),
+            });
+        }
         std::fs::write(&path, serde_json::to_string_pretty(&body)? + "\n")?;
         Ok(path)
     }
@@ -301,7 +312,9 @@ impl ProgressTracker {
     }
 
     pub fn for_request(request: &SongRequest) -> Self {
-        Self::new(estimated_seconds(&request.lyrics), request.steps)
+        let expected = estimated_seconds(&request.lyrics);
+        let expected = request.max_duration_seconds.map(|limit| expected.min(limit as f32)).unwrap_or(expected);
+        Self::new(expected, request.steps)
     }
 
     /// Position `within` (0–1) of stage `i` on the overall bar.
@@ -346,6 +359,27 @@ fn number_before(text: &str, unit: &str) -> Option<f32> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn maps_duration_at_the_adapter_without_changing_default_sampling() {
+        let dir = std::env::temp_dir().join(format!("canto-duration-{}", crate::random_seed()));
+        let engine = MlxYue::new(Config { library_dir: Some(dir.clone()), ..Default::default() });
+        let mut request = SongRequest { style: "instrumental".into(), lyrics: "[intro]".into(), steps: 8, ..Default::default() };
+        let path = engine.write_request(&request, "default").unwrap();
+        let body: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+        assert!(body.get("semantic_sampling").is_none());
+        assert_eq!(body["generation_config"], serde_json::json!({"ode_steps": 8}));
+        for (seconds, max, min) in [(1,25,25), (7,175,175), (90,2250,200), (360,9000,200)] {
+            request.max_duration_seconds = Some(seconds);
+            let path = engine.write_request(&request, "bounded").unwrap();
+            let body: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+            assert_eq!(body["semantic_sampling"], serde_json::json!({"max_tokens": max, "min_tokens": min}));
+            assert_eq!(body["generation_config"], serde_json::json!({"ode_steps": 8}));
+        }
+        request.max_duration_seconds = Some(u32::MAX);
+        assert!(engine.write_request(&request, "invalid").is_err());
+        std::fs::remove_dir_all(dir).unwrap();
+    }
 
     #[test]
     fn tracks_phases_monotonically() {
