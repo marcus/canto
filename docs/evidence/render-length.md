@@ -21,6 +21,8 @@ The configured project is `/Volumes/Swift/local-inference/yue2/mlx-Yue`. Its `.v
 - `vendor/yue/src/yue2/protocol.py`, `Sampling`: accepts request-level sampling overrides; requires `0 <= min_tokens <= max_tokens` and positive maximum; defaults are 200 and 9000.
 - Existing `crooked-cassette/result.json` has 359.9986666666667 audio seconds and a 9000 semantic-token ceiling, consistent with that geometry.
 
-## Remaining observation
+## Observed bounded render
 
-The serial radio coordinator owns the first bounded render and output audit. Unit and adapter checks do not prove a new rendered duration, musical ending, or runtime improvement. The current decoder's samples fall below the limit; a different decoder's verification allowance is one codec frame (40 ms). ABC planning remains unchanged, and the memory/swap guard is preserved.
+The private CLI built from `56f0dae` generated `tidal-glass-3` with full symbolic planning, eight acoustic steps and `max_duration_seconds: 110`. Its native `config.json` records `generation.semantic.max_tokens: 2750` and `min_tokens: 200`; `canto.json` retains the requested limit. Reading the song back through `canto --json show tidal-glass-3` returns that same limit and a source duration of 109.9986666667 seconds. The delivered Opus measures 110.007 seconds because of encoded padding. Generation took 235.85 seconds, and the radio coordinator accepted the exact encoded bytes after strict decoding and an automated complete-track word/voice check. Source and runtime evidence remain in `/Volumes/Swift/local-inference/yue2/outputs/tidal-glass-3/` and the Rivers and Roads Canto generation report.
+
+This proves an actual bounded output and preserved request metadata. Musical taste and an ideal musical ending were not auditioned. The current decoder's samples fall below the limit; a different decoder's verification allowance is one codec frame (40 ms). ABC planning remains unchanged, and the memory/swap guard is preserved.
