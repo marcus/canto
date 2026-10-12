@@ -1,0 +1,18 @@
+[workspace]
+resolver = "3"
+members = ["crates/canto-core", "crates/canto-cli", "crates/canto-app"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+
+[workspace.dependencies]
+canto-core = { path = "crates/canto-core" }
+anyhow = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[profile.dev.package."*"]
+# GPUI and FLAC decoding are unusably slow unoptimized; our own crates stay fast to rebuild.
+opt-level = 2

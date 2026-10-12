@@ -1,0 +1,3 @@
+[env]
+# GPUI compiles Metal shaders at build time; the Command Line Tools lack the metal compiler.
+DEVELOPER_DIR = "/Applications/Xcode.app/Contents/Developer"
