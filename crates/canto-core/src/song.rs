@@ -54,6 +54,9 @@ pub struct SongRequest {
     pub seed: u64,
     #[serde(default = "default_steps")]
     pub steps: u32,
+    /// Optional upper bound in whole seconds (1–360). Omitted keeps the engine default.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_duration_seconds: Option<u32>,
 }
 
 fn default_steps() -> u32 {
@@ -65,6 +68,14 @@ impl SongRequest {
         anyhow::ensure!(!self.style.trim().is_empty(), "style cannot be empty");
         anyhow::ensure!(!self.lyrics.trim().is_empty(), "lyrics cannot be empty");
         anyhow::ensure!((1..=128).contains(&self.steps), "steps must be between 1 and 128");
+        self.validate_duration_limit()?;
+        Ok(())
+    }
+
+    pub fn validate_duration_limit(&self) -> anyhow::Result<()> {
+        if let Some(seconds) = self.max_duration_seconds {
+            anyhow::ensure!((1..=360).contains(&seconds), "max_duration_seconds must be between 1 and 360");
+        }
         Ok(())
     }
 
@@ -116,6 +127,8 @@ pub struct Song {
     pub status: SongStatus,
     pub error: Option<String>,
     pub duration_secs: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_duration_seconds: Option<u32>,
     pub audio: Option<PathBuf>,
     pub mp3: Option<PathBuf>,
     pub seconds_to_generate: Option<f64>,
@@ -131,10 +144,40 @@ impl Song {
             mode: self.mode,
             seed: self.seed,
             steps: self.steps,
+            max_duration_seconds: self.max_duration_seconds,
         }
     }
 
     pub fn is_draft(&self) -> bool {
         self.steps < FULL_STEPS
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn old_requests_keep_engine_default_and_roundtrip_without_a_limit() {
+        let request: SongRequest = serde_json::from_str(r#"{"title":"Old","style":"folk","lyrics":"[intro]"}"#).unwrap();
+        assert_eq!(request.max_duration_seconds, None);
+        assert_eq!(request.steps, FULL_STEPS);
+        assert!(request.validate().is_ok());
+        assert!(serde_json::to_value(request).unwrap().get("max_duration_seconds").is_none());
+    }
+
+    #[test]
+    fn duration_limit_is_bounded_and_survives_request_serialization() {
+        let mut request = SongRequest { style: "instrumental".into(), lyrics: "[intro]".into(), steps: 8, ..Default::default() };
+        for seconds in [1, 90, 360] {
+            request.max_duration_seconds = Some(seconds);
+            request.validate().unwrap();
+            let loaded: SongRequest = serde_json::from_value(serde_json::to_value(&request).unwrap()).unwrap();
+            assert_eq!(loaded.max_duration_seconds, Some(seconds));
+        }
+        for seconds in [0, 361, u32::MAX] {
+            request.max_duration_seconds = Some(seconds);
+            assert!(request.validate().is_err());
+        }
     }
 }

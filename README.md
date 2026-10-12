@@ -45,6 +45,7 @@ This builds `~/Applications/Canto.app` and installs the CLI to `~/.local/bin/can
 ```bash
 canto generate --idea "a folk lullaby for a sleepy cat" --draft
 canto generate --title "Night Drive" --style "synthwave, male vocal, 110 BPM" --lyrics-file song.txt
+canto generate --title "Radio Interlude" --style "instrumental, jazz, piano" --lyrics "[intro] [instrumental] [outro]" --max-duration-seconds 90 --json
 canto refine --idea "a stomping bluegrass song about a runaway tractor" --with codex --json
 canto refine --style "rock" --lyrics-file song.txt --only lyrics --instruction "tighter rhymes"
 canto list --json
@@ -56,6 +57,10 @@ canto export-mp3 <id>
 ```
 
 `generate --json` streams JSON lines: `refining` and `refined` when a refiner runs, then `started`, `progress` events (`stage`, `fraction`, `detail`), and `done` with the finished song. Errors print `{"error": "..."}` and exit 1.
+
+`generate --max-duration-seconds N` optionally bounds generated audio to 1–360 whole seconds. Omit it to keep the model's existing length behaviour. The model may end earlier; a cap can cut off a musical phrase and does not promise a composed ending. Prompt planning still runs normally. Canto saves the requested limit in `canto.json`, includes it in song JSON, and keeps it in `Song.request()` for remixes. Old songs with no limit remain unbounded by Canto. The desktop Custom form uses the default; remixing a bounded song keeps its limit.
+
+The mlx-Yue adapter alone converts seconds to a semantic token ceiling at 25 codec frames per second and clamps the minimum token count to that ceiling. The current standard decoder produces `1920 × frames − 64` samples at 48 kHz, slightly under the requested ceiling. Allow up to one codec frame (40 ms) of decoder padding when checking audio from a different decoder release. The memory and swap guard, acoustic step count, and other sampling defaults stay unchanged. Details and source verification are in [render length](docs/render-length.md).
 
 ## Where things live
 

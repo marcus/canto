@@ -74,6 +74,9 @@ struct GenerateArgs {
     /// Seed (random when omitted). Same seed + prompt = same song.
     #[arg(long)]
     seed: Option<u64>,
+    /// Limit generated audio to 1–360 whole seconds; omitted keeps the engine default
+    #[arg(long)]
+    max_duration_seconds: Option<u32>,
     /// Quick 8-step audition instead of the full 32 steps
     #[arg(long)]
     draft: bool,
@@ -223,7 +226,9 @@ fn generate(studio: &Studio, args: &GenerateArgs, json: bool) -> Result<()> {
         mode: args.mode,
         seed: args.seed.unwrap_or_else(canto_core::random_seed),
         steps: if args.draft { DRAFT_STEPS } else { FULL_STEPS },
+        max_duration_seconds: args.max_duration_seconds,
     };
+    request.validate_duration_limit()?;
     let mut prompt_source = None;
     let task = if let Some(idea) = &args.idea {
         prompt_source = Some(idea.clone());
@@ -250,6 +255,7 @@ fn generate(studio: &Studio, args: &GenerateArgs, json: bool) -> Result<()> {
     if request.style.trim().is_empty() || request.lyrics.trim().is_empty() {
         bail!("need --style and --lyrics (or --lyrics-file), or an --idea to write them");
     }
+    request.validate()?;
     let id = studio.reserve_id(&request)?;
     emit(json, serde_json::json!({ "event": "started", "id": id, "request": request }), &format!("Generating {id} (seed {})", request.seed));
 
@@ -298,6 +304,9 @@ fn print_song(song: &Song, json: bool) -> Result<()> {
     if let Some(d) = song.duration_secs {
         println!("  length:   {}", fmt_secs(d));
     }
+    if let Some(max) = song.max_duration_seconds {
+        println!("  max:      {}", fmt_secs(max as f64));
+    }
     println!("  style:    {}", song.style);
     println!("  seed:     {}", song.seed);
     if let Some(a) = &song.audio {
@@ -312,4 +321,21 @@ fn print_song(song: &Song, json: bool) -> Result<()> {
 fn fmt_secs(s: f64) -> String {
     let s = s.round() as u64;
     format!("{}:{:02}", s / 60, s % 60)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn generate_accepts_optional_duration_with_json() {
+        let cli = Cli::try_parse_from(["canto", "generate", "--style", "instrumental", "--lyrics", "[intro]", "--max-duration-seconds", "90", "--json"]).unwrap();
+        assert!(cli.json);
+        let Cmd::Generate(args) = cli.command else { panic!("wrong command") };
+        assert_eq!(args.max_duration_seconds, Some(90));
+        let cli = Cli::try_parse_from(["canto", "generate"]).unwrap();
+        let Cmd::Generate(args) = cli.command else { panic!("wrong command") };
+        assert_eq!(args.max_duration_seconds, None);
+        assert!(Cli::try_parse_from(["canto", "generate", "--max-duration-seconds", "1.5"]).is_err());
+    }
 }

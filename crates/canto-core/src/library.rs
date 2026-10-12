@@ -107,6 +107,7 @@ impl Library {
             mode: Mode::parse(&str_field("cot", asked.mode.as_str())).unwrap_or_default(),
             seed: request.get("seed").and_then(Value::as_u64).unwrap_or(asked.seed),
             steps,
+            max_duration_seconds: asked.max_duration_seconds,
             created: if meta.created > 0 { meta.created } else { mtime(&dir) },
             favorite: meta.favorite,
             status,
@@ -257,6 +258,30 @@ fn humanize(id: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn bounded_requests_survive_library_load_and_remix_without_touching_engine_files() {
+        let dir = std::env::temp_dir().join(format!("canto-library-duration-{}", crate::random_seed()));
+        let library = Library::new(&dir);
+        let request = crate::song::SongRequest { title: "Bounded".into(), style: "instrumental".into(), lyrics: "[intro]".into(), steps: 8, max_duration_seconds: Some(90), ..Default::default() };
+        library.write_meta("bounded", &SongMeta { request: Some(request.clone()), ..Default::default() }).unwrap();
+        // An early failed/incomplete song still retains the request and its bound.
+        let song = library.get("bounded").unwrap();
+        assert_eq!(song.max_duration_seconds, Some(90));
+        assert_eq!(song.request().max_duration_seconds, Some(90));
+        let native = r#"{"style":"native style","lyrics":"[verse]","seed":11,"cot":"melody"}"#;
+        std::fs::write(dir.join("bounded/request.json"), native).unwrap();
+        let song = library.get("bounded").unwrap();
+        assert_eq!(song.style, "native style");
+        assert_eq!(song.seed, 11);
+        assert_eq!(song.request().max_duration_seconds, Some(90));
+        library.rename("bounded", "Renamed").unwrap();
+        assert_eq!(std::fs::read_to_string(dir.join("bounded/request.json")).unwrap(), native);
+        assert_eq!(library.get("bounded").unwrap().request().max_duration_seconds, Some(90));
+        library.write_meta("legacy", &SongMeta::default()).unwrap();
+        assert_eq!(library.get("legacy").unwrap().request().max_duration_seconds, None);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
 
     #[test]
     fn slug_is_filesystem_safe() {
