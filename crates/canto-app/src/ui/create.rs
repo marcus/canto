@@ -315,8 +315,11 @@ impl CantoApp {
                     .items_center()
                     .justify_between()
                     .cursor_pointer()
+                    .gap(px(12.))
                     .child(
                         div()
+                            .flex_1()
+                            .min_w_0()
                             .flex()
                             .flex_col()
                             .child(div().text_sm().text_color(text()).child("Quick draft"))

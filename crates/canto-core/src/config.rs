@@ -1,7 +1,8 @@
 //! Canto settings: where YuE2 lives, where songs go, and which refiner to use.
 //!
 //! Stored as JSON at `~/.config/canto/config.json`. Every field has a default
-//! that matches the Aerie install, so a missing file is a working setup.
+//! matching the yue2-studio installer's layout (`~/Projects/mlx-Yue`, or
+//! `$YUE2_PROJECT`), so a missing file is a working setup.
 
 use std::path::{Path, PathBuf};
 
@@ -15,8 +16,9 @@ use crate::refine::RefinerKind;
 pub struct Config {
     /// The mlx-Yue checkout: holds `.venv`, `models/converted`, `models/vae`.
     pub yue_project: PathBuf,
-    /// Where finished songs live, one directory per song.
-    pub library_dir: PathBuf,
+    /// Where finished songs live, one directory per song. Defaults to the
+    /// project's `outputs/`, which the bundled YuE2 Studio also writes to.
+    pub library_dir: Option<PathBuf>,
     /// Weight precision passed to `mlx-yue`: bf16, 8bit or 4bit.
     pub precision: String,
     pub memory_budget_gib: f32,
@@ -29,10 +31,12 @@ pub struct Config {
 
 impl Default for Config {
     fn default() -> Self {
-        let root = PathBuf::from("/Volumes/Swift/local-inference/yue2");
+        let project = std::env::var_os("YUE2_PROJECT")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| home().join("Projects/mlx-Yue"));
         Self {
-            yue_project: root.join("mlx-Yue"),
-            library_dir: root.join("outputs"),
+            yue_project: project,
+            library_dir: None,
             precision: "8bit".into(),
             memory_budget_gib: 16.0,
             vae_core_frames: 128,
@@ -70,6 +74,10 @@ impl Config {
         }
         std::fs::write(&path, serde_json::to_string_pretty(self)? + "\n")?;
         Ok(())
+    }
+
+    pub fn library_dir(&self) -> PathBuf {
+        self.library_dir.clone().unwrap_or_else(|| self.yue_project.join("outputs"))
     }
 
     pub fn mlx_yue(&self) -> PathBuf {

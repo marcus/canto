@@ -91,7 +91,7 @@ impl MlxYue {
     }
 
     fn write_request(&self, request: &SongRequest, id: &str) -> Result<std::path::PathBuf> {
-        let dir = self.config.library_dir.join(".requests");
+        let dir = self.config.library_dir().join(".requests");
         std::fs::create_dir_all(&dir)?;
         let path = dir.join(format!("{id}.json"));
         let body = serde_json::json!({
@@ -263,7 +263,7 @@ pub(crate) fn tool_path() -> String {
 }
 
 /// Rough song length from the lyrics: about 45 s plus 3.5 s per sung line
-/// (fitted on M4 Pro runs; only used to weight the progress bar).
+/// (fitted on an M4 Pro; only used to weight the progress bar).
 pub fn estimated_seconds(lyrics: &str) -> f32 {
     let sung = lyrics.lines().map(str::trim).filter(|l| !l.is_empty() && !l.starts_with('[')).count();
     45.0 + 3.5 * sung as f32
@@ -272,7 +272,7 @@ pub fn estimated_seconds(lyrics: &str) -> f32 {
 /// Maps YuE2's `[YuE2] Running <Phase>: …` lines onto one overall fraction.
 ///
 /// Each stage gets a share of the bar proportional to its expected time on
-/// Aerie, per second of audio: planning ~0.15 s, writing tokens ~0.55 s,
+/// an M4 Pro, per second of audio: planning ~0.15 s, writing tokens ~0.55 s,
 /// synthesis ~0.07 s per step, decoding ~0.08 s, plus a few seconds of loading.
 pub struct ProgressTracker {
     best: f32,

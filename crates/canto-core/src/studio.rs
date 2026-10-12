@@ -24,7 +24,7 @@ impl Studio {
     }
 
     pub fn with_engine(config: Config, engine: Box<dyn Engine>) -> Self {
-        Self { library: Library::new(config.library_dir.clone()), config, engine }
+        Self { library: Library::new(config.library_dir()), config, engine }
     }
 
     pub fn open() -> Result<Self> {
