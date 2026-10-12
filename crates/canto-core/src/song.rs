@@ -96,6 +96,8 @@ pub struct SongMeta {
     pub status: Option<SongStatus>,
     pub error: Option<String>,
     pub seconds_to_generate: Option<f64>,
+    /// What was asked for, so a failed run can still be reused or remixed.
+    pub request: Option<SongRequest>,
 }
 
 /// A song as the library sees it.

@@ -82,7 +82,11 @@ impl Library {
                 _ => SongStatus::Incomplete,
             }
         };
-        let str_field = |key: &str| request.get(key).and_then(Value::as_str).unwrap_or("").to_string();
+        // YuE2's request.json is the truth; Canto's copy covers runs that died early.
+        let asked = meta.request.clone().unwrap_or_default();
+        let str_field = |key: &str, fallback: &str| {
+            request.get(key).and_then(Value::as_str).unwrap_or(fallback).to_string()
+        };
         let steps = meta
             .steps
             .or_else(|| {
@@ -92,15 +96,16 @@ impl Library {
                     .and_then(Value::as_u64)
                     .map(|n| n as u32)
             })
+            .or(meta.request.as_ref().map(|r| r.steps))
             .unwrap_or(FULL_STEPS);
 
         Some(Song {
             id: id.to_string(),
             title: if meta.title.is_empty() { humanize(id) } else { meta.title.clone() },
-            style: str_field("style"),
-            lyrics: str_field("lyrics"),
-            mode: Mode::parse(&str_field("cot")).unwrap_or_default(),
-            seed: request.get("seed").and_then(Value::as_u64).unwrap_or(0),
+            style: str_field("style", &asked.style),
+            lyrics: str_field("lyrics", &asked.lyrics),
+            mode: Mode::parse(&str_field("cot", asked.mode.as_str())).unwrap_or_default(),
+            seed: request.get("seed").and_then(Value::as_u64).unwrap_or(asked.seed),
             steps,
             created: if meta.created > 0 { meta.created } else { mtime(&dir) },
             favorite: meta.favorite,

@@ -39,14 +39,24 @@ impl Studio {
         self.refiner(kind).refine(task)
     }
 
-    /// Pick the song's directory name up front so callers can track it.
-    pub fn reserve_id(&self, request: &SongRequest) -> String {
+    /// Claim the song's directory up front so queued songs never collide.
+    /// YuE2 accepts an empty output directory; the library ignores it until
+    /// the run writes a result or metadata.
+    pub fn reserve_id(&self, request: &SongRequest) -> Result<String> {
         let basis = if request.title.trim().is_empty() {
             request.style.split(',').next().unwrap_or("song")
         } else {
             &request.title
         };
-        self.library.new_id(basis)
+        loop {
+            let id = self.library.new_id(basis);
+            match std::fs::create_dir(self.library.dir().join(&id)) {
+                Ok(()) => return Ok(id),
+                Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => continue,
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => std::fs::create_dir_all(self.library.dir())?,
+                Err(e) => return Err(e.into()),
+            }
+        }
     }
 
     /// Generate one song. Blocks until it finishes, fails, or is cancelled.
@@ -61,11 +71,16 @@ impl Studio {
         on_event: &mut dyn FnMut(EngineEvent),
         cancel: &CancelToken,
     ) -> Result<Song> {
-        request.validate()?;
-        let created = now();
-        let _gpu = self.acquire_gpu(on_event, cancel)?;
-        let started = Instant::now();
         let out_dir = self.library.dir().join(id);
+        let created = now();
+        let _gpu = match request.validate().and_then(|()| self.acquire_gpu(on_event, cancel)) {
+            Ok(lock) => lock,
+            Err(e) => {
+                let _ = std::fs::remove_dir(&out_dir); // only succeeds while still empty
+                return Err(e);
+            }
+        };
+        let started = Instant::now();
         let outcome = self.engine.generate(request, id, &out_dir, on_event, cancel);
 
         let (status, error) = match &outcome {
@@ -82,6 +97,7 @@ impl Studio {
             status: Some(status),
             error,
             seconds_to_generate: Some(started.elapsed().as_secs_f64()),
+            request: Some(request.clone()),
         };
         self.library.write_meta(id, &meta)?;
         if status == SongStatus::Cancelled && !out_dir.join("audio.flac").exists() {

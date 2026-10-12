@@ -250,7 +250,7 @@ fn generate(studio: &Studio, args: &GenerateArgs, json: bool) -> Result<()> {
     if request.style.trim().is_empty() || request.lyrics.trim().is_empty() {
         bail!("need --style and --lyrics (or --lyrics-file), or an --idea to write them");
     }
-    let id = studio.reserve_id(&request);
+    let id = studio.reserve_id(&request)?;
     emit(json, serde_json::json!({ "event": "started", "id": id, "request": request }), &format!("Generating {id} (seed {})", request.seed));
 
     let cancel = CancelToken::default();
