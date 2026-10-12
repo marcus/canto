@@ -1,0 +1,96 @@
+{
+  "binary": "/Users/marcus/code/canto-rar-length-oct11/target/instrumental/release/canto",
+  "sha256": "f6c78ab87504031ad9ddccce9633449d94f47bbbddd3d29d5a92b5468c55e250",
+  "kind": "CLI plus temporary substitute engine; no GPU/audio quality proof",
+  "refusals": [
+    {
+      "arguments": [
+        "--style",
+        "piano"
+      ],
+      "exit": 1,
+      "error": "need --style and --lyrics (or --lyrics-file), or an --idea to write them",
+      "directory_created": false
+    },
+    {
+      "arguments": [
+        "--style",
+        "piano",
+        "--instrumental",
+        "--lyrics",
+        "[Intro]"
+      ],
+      "exit": 1,
+      "error": "instrumental conditioning requires empty lyrics; omit lyrics and section markers",
+      "directory_created": false
+    },
+    {
+      "arguments": [
+        "--instrumental",
+        "--idea",
+        "piano"
+      ],
+      "exit": 1,
+      "error": "--instrumental requires an explicit --style and cannot use --idea or --refine; refiners write sung lyrics",
+      "directory_created": false
+    },
+    {
+      "arguments": [
+        "--instrumental",
+        "--style",
+        "piano",
+        "--refine"
+      ],
+      "exit": 1,
+      "error": "--instrumental requires an explicit --style and cannot use --idea or --refine; refiners write sung lyrics",
+      "directory_created": false
+    },
+    {
+      "arguments": [
+        "--instrumental"
+      ],
+      "exit": 1,
+      "error": "style cannot be empty",
+      "directory_created": false
+    }
+  ],
+  "success": {
+    "started_request": {
+      "instrumental": true,
+      "lyrics": "",
+      "max_duration_seconds": 90,
+      "mode": "full",
+      "seed": 42,
+      "steps": 32,
+      "style": "piano, jazz",
+      "title": "Instrumental Proof"
+    },
+    "native_request": {
+      "cot": "full",
+      "generation_config": {
+        "ode_steps": 32
+      },
+      "id": "instrumental-proof",
+      "lyrics": "",
+      "seed": 42,
+      "semantic_sampling": {
+        "max_tokens": 2250,
+        "min_tokens": 200
+      },
+      "style": "instrumental, piano, jazz"
+    },
+    "metadata_request": {
+      "title": "Instrumental Proof",
+      "style": "piano, jazz",
+      "lyrics": "",
+      "mode": "full",
+      "seed": 42,
+      "steps": 32,
+      "max_duration_seconds": 90,
+      "instrumental": true
+    },
+    "song_instrumental": true,
+    "guard_arguments_present": true,
+    "audio_created": false
+  }
+}

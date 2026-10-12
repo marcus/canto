@@ -46,7 +46,7 @@ pub struct SongRequest {
     pub title: String,
     /// English tags: genre, vocal, instruments, tempo, mood, production.
     pub style: String,
-    /// Section-tagged lyrics. Song length follows the lyrics.
+    /// Section-tagged lyrics, or empty for explicit instrumental conditioning.
     pub lyrics: String,
     #[serde(default)]
     pub mode: Mode,
@@ -57,6 +57,13 @@ pub struct SongRequest {
     /// Optional upper bound in whole seconds (1–360). Omitted keeps the engine default.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_duration_seconds: Option<u32>,
+    /// Request empty-lyric instrumental conditioning, not guaranteed vocal-free audio.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub instrumental: bool,
+}
+
+fn is_false(value: &bool) -> bool {
+    !*value
 }
 
 fn default_steps() -> u32 {
@@ -66,9 +73,18 @@ fn default_steps() -> u32 {
 impl SongRequest {
     pub fn validate(&self) -> anyhow::Result<()> {
         anyhow::ensure!(!self.style.trim().is_empty(), "style cannot be empty");
-        anyhow::ensure!(!self.lyrics.trim().is_empty(), "lyrics cannot be empty");
+        self.validate_lyric_conditioning()?;
         anyhow::ensure!((1..=128).contains(&self.steps), "steps must be between 1 and 128");
         self.validate_duration_limit()?;
+        Ok(())
+    }
+
+    pub fn validate_lyric_conditioning(&self) -> anyhow::Result<()> {
+        if self.instrumental {
+            anyhow::ensure!(self.lyrics.trim().is_empty(), "instrumental conditioning requires empty lyrics; omit lyrics and section markers");
+        } else {
+            anyhow::ensure!(!self.lyrics.trim().is_empty(), "lyrics cannot be empty");
+        }
         Ok(())
     }
 
@@ -129,6 +145,8 @@ pub struct Song {
     pub duration_secs: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_duration_seconds: Option<u32>,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub instrumental: bool,
     pub audio: Option<PathBuf>,
     pub mp3: Option<PathBuf>,
     pub seconds_to_generate: Option<f64>,
@@ -145,6 +163,7 @@ impl Song {
             seed: self.seed,
             steps: self.steps,
             max_duration_seconds: self.max_duration_seconds,
+            instrumental: self.instrumental,
         }
     }
 
@@ -161,9 +180,30 @@ mod tests {
     fn old_requests_keep_engine_default_and_roundtrip_without_a_limit() {
         let request: SongRequest = serde_json::from_str(r#"{"title":"Old","style":"folk","lyrics":"[intro]"}"#).unwrap();
         assert_eq!(request.max_duration_seconds, None);
+        assert!(!request.instrumental);
         assert_eq!(request.steps, FULL_STEPS);
         assert!(request.validate().is_ok());
-        assert!(serde_json::to_value(request).unwrap().get("max_duration_seconds").is_none());
+        let body = serde_json::to_value(request).unwrap();
+        assert!(body.get("max_duration_seconds").is_none());
+        assert!(body.get("instrumental").is_none());
+    }
+
+    #[test]
+    fn instrumental_conditioning_requires_explicit_intent_and_no_lyric_text() {
+        let mut request = SongRequest { style: "piano, jazz".into(), steps: 32, ..Default::default() };
+        assert!(request.validate().unwrap_err().to_string().contains("lyrics cannot be empty"));
+        request.instrumental = true;
+        request.validate().unwrap();
+        let loaded: SongRequest = serde_json::from_value(serde_json::to_value(&request).unwrap()).unwrap();
+        assert!(loaded.instrumental);
+        for lyrics in ["Sing these words", "[Intro][Verse][Outro]", "[instrumental]"] {
+            request.lyrics = lyrics.into();
+            assert!(request.validate().unwrap_err().to_string().contains("requires empty lyrics"));
+        }
+        request.lyrics = "  \n  ".into();
+        request.validate().unwrap();
+        request.style.clear();
+        assert!(request.validate().is_err());
     }
 
     #[test]

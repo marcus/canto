@@ -92,13 +92,22 @@ impl MlxYue {
 
     fn write_request(&self, request: &SongRequest, id: &str) -> Result<std::path::PathBuf> {
         request.validate_duration_limit()?;
+        request.validate_lyric_conditioning()?;
         let dir = self.config.library_dir().join(".requests");
         std::fs::create_dir_all(&dir)?;
         let path = dir.join(format!("{id}.json"));
+        // Native YuE has no hard instrumental switch: condition with an explicit
+        // style tag and genuinely empty lyrics, keeping Canto provenance separate.
+        let style = if request.instrumental && !request.style.split(',').any(|tag| tag.trim().eq_ignore_ascii_case("instrumental")) {
+            format!("instrumental, {}", request.style)
+        } else {
+            request.style.clone()
+        };
+        let lyrics = if request.instrumental { "" } else { &request.lyrics };
         let mut body = serde_json::json!({
             "id": id,
-            "style": request.style,
-            "lyrics": request.lyrics,
+            "style": style,
+            "lyrics": lyrics,
             "cot": request.mode.as_str(),
             "seed": request.seed,
             "generation_config": { "ode_steps": request.steps },
@@ -377,6 +386,27 @@ mod tests {
             assert_eq!(body["generation_config"], serde_json::json!({"ode_steps": 8}));
         }
         request.max_duration_seconds = Some(u32::MAX);
+        assert!(engine.write_request(&request, "invalid").is_err());
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn instrumental_adapter_uses_empty_lyrics_and_explicit_style_without_native_flag() {
+        let dir = std::env::temp_dir().join(format!("canto-instrumental-{}", crate::random_seed()));
+        let engine = MlxYue::new(Config { library_dir: Some(dir.clone()), ..Default::default() });
+        let mut request = SongRequest { style: "piano, jazz".into(), lyrics: "  \n".into(), instrumental: true, steps: 32, max_duration_seconds: Some(90), ..Default::default() };
+        let path = engine.write_request(&request, "instrumental").unwrap();
+        let body: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+        assert_eq!(body["style"], "instrumental, piano, jazz");
+        assert_eq!(body["lyrics"], "");
+        assert!(body.get("instrumental").is_none());
+        assert_eq!(body["generation_config"]["ode_steps"], 32);
+        assert_eq!(body["semantic_sampling"]["max_tokens"], 2250);
+        request.style = "Instrumental, piano".into();
+        let path = engine.write_request(&request, "existing-tag").unwrap();
+        let body: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+        assert_eq!(body["style"], request.style);
+        request.lyrics = "[Intro]".into();
         assert!(engine.write_request(&request, "invalid").is_err());
         std::fs::remove_dir_all(dir).unwrap();
     }

@@ -77,6 +77,9 @@ struct GenerateArgs {
     /// Limit generated audio to 1–360 whole seconds; omitted keeps the engine default
     #[arg(long)]
     max_duration_seconds: Option<u32>,
+    /// Request instrumental conditioning with empty lyrics (vocals are still possible)
+    #[arg(long)]
+    instrumental: bool,
     /// Quick 8-step audition instead of the full 32 steps
     #[arg(long)]
     draft: bool,
@@ -227,8 +230,13 @@ fn generate(studio: &Studio, args: &GenerateArgs, json: bool) -> Result<()> {
         seed: args.seed.unwrap_or_else(canto_core::random_seed),
         steps: if args.draft { DRAFT_STEPS } else { FULL_STEPS },
         max_duration_seconds: args.max_duration_seconds,
+        instrumental: args.instrumental,
     };
     request.validate_duration_limit()?;
+    if request.instrumental {
+        request.validate_lyric_conditioning()?;
+        anyhow::ensure!(args.idea.is_none() && !args.refine, "--instrumental requires an explicit --style and cannot use --idea or --refine; refiners write sung lyrics");
+    }
     let mut prompt_source = None;
     let task = if let Some(idea) = &args.idea {
         prompt_source = Some(idea.clone());
@@ -252,7 +260,7 @@ fn generate(studio: &Studio, args: &GenerateArgs, json: bool) -> Result<()> {
         request.style = brief.style;
         request.lyrics = brief.lyrics;
     }
-    if request.style.trim().is_empty() || request.lyrics.trim().is_empty() {
+    if !request.instrumental && (request.style.trim().is_empty() || request.lyrics.trim().is_empty()) {
         bail!("need --style and --lyrics (or --lyrics-file), or an --idea to write them");
     }
     request.validate()?;
@@ -307,6 +315,9 @@ fn print_song(song: &Song, json: bool) -> Result<()> {
     if let Some(max) = song.max_duration_seconds {
         println!("  max:      {}", fmt_secs(max as f64));
     }
+    if song.instrumental {
+        println!("  conditioning: instrumental (vocals possible)");
+    }
     println!("  style:    {}", song.style);
     println!("  seed:     {}", song.seed);
     if let Some(a) = &song.audio {
@@ -326,6 +337,19 @@ fn fmt_secs(s: f64) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn generate_accepts_explicit_instrumental_without_lyrics() {
+        let cli = Cli::try_parse_from(["canto", "generate", "--style", "piano", "--instrumental", "--max-duration-seconds", "90", "--json"]).unwrap();
+        assert!(cli.json);
+        let Cmd::Generate(args) = cli.command else { panic!("wrong command") };
+        assert!(args.instrumental);
+        assert_eq!(args.lyrics, None);
+        assert_eq!(read_lyrics(args.lyrics, args.lyrics_file).unwrap(), "");
+        let cli = Cli::try_parse_from(["canto", "generate"]).unwrap();
+        let Cmd::Generate(args) = cli.command else { panic!("wrong command") };
+        assert!(!args.instrumental);
+    }
 
     #[test]
     fn generate_accepts_optional_duration_with_json() {

@@ -108,6 +108,7 @@ impl Library {
             seed: request.get("seed").and_then(Value::as_u64).unwrap_or(asked.seed),
             steps,
             max_duration_seconds: asked.max_duration_seconds,
+            instrumental: asked.instrumental,
             created: if meta.created > 0 { meta.created } else { mtime(&dir) },
             favorite: meta.favorite,
             status,
@@ -280,6 +281,34 @@ mod tests {
         assert_eq!(library.get("bounded").unwrap().request().max_duration_seconds, Some(90));
         library.write_meta("legacy", &SongMeta::default()).unwrap();
         assert_eq!(library.get("legacy").unwrap().request().max_duration_seconds, None);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn instrumental_metadata_survives_loading_and_remix_and_is_never_inferred() {
+        let dir = std::env::temp_dir().join(format!("canto-library-instrumental-{}", crate::random_seed()));
+        let library = Library::new(&dir);
+        let request = crate::song::SongRequest { style: "piano".into(), steps: 32, instrumental: true, ..Default::default() };
+        library.write_meta("instrumental", &SongMeta { request: Some(request), ..Default::default() }).unwrap();
+        let native = r#"{"style":"instrumental, piano","lyrics":"","seed":42,"cot":"full"}"#;
+        std::fs::write(dir.join("instrumental/request.json"), native).unwrap();
+        let song = library.get("instrumental").unwrap();
+        assert!(song.instrumental);
+        assert!(song.request().instrumental);
+        song.request().validate().unwrap();
+        let mut remix = song.request();
+        remix.lyrics = "[Verse]\nActual sung text".into();
+        assert!(remix.validate().is_err());
+        remix.instrumental = false;
+        remix.validate().unwrap();
+        library.rename("instrumental", "Renamed").unwrap();
+        assert!(library.get("instrumental").unwrap().request().instrumental);
+        assert_eq!(std::fs::read_to_string(dir.join("instrumental/request.json")).unwrap(), native);
+        library.write_meta("native-only", &SongMeta::default()).unwrap();
+        std::fs::write(dir.join("native-only/request.json"), native).unwrap();
+        let legacy = library.get("native-only").unwrap();
+        assert!(!legacy.instrumental);
+        assert!(serde_json::to_value(legacy).unwrap().get("instrumental").is_none());
         std::fs::remove_dir_all(dir).unwrap();
     }
 
